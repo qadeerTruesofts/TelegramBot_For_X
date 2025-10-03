@@ -22,6 +22,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import uuid
 
 
 COOKIE_FILE = "twitter_cookies.pkl"
@@ -61,6 +62,15 @@ def get_next_task_id():
         return last_task["task_id"] + 1
     else:
         return 1
+# ---------------- HELPER: SAVE SCREENSHOT ----------------
+def save_screenshot(driver, label="step"):
+    """Save screenshot with a unique filename for debugging."""
+    filename = f"screenshot_{label}_{uuid.uuid4().hex[:6]}.png"
+    try:
+        driver.save_screenshot(filename)
+        logger.info(f"📸 Screenshot saved: {filename}")
+    except Exception as e:
+        logger.error(f"❌ Failed to save screenshot {label}: {e}")
 
 # ---------------- VERIFICATION FUNCTIONS ----------------
 
@@ -136,39 +146,29 @@ def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None,
     url = f"https://x.com/{username}/with_replies"
     logger.info(f"🌐 Opening replies page: {url}")
     driver.get(url)
+    save_screenshot(driver, "with_replies_opened")
 
-    # wait for replies to appear
     try:
         WebDriverWait(driver, 15).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "article"))
         )
     except Exception:
         logger.warning("⚠️ No replies loaded within timeout.")
+    save_screenshot(driver, "with_replies_loaded")
 
-    # scroll multiple times to load more replies
     for _ in range(5):
         driver.find_element(By.TAG_NAME, "body").send_keys(Keys.END)
         time.sleep(2)
+    save_screenshot(driver, "after_scrolling")
 
-    # collect tweets
     tweets = driver.find_elements(By.CSS_SELECTOR, "article")
     logger.info(f"📌 Found {len(tweets)} tweets on replies page.")
 
-    # debug dump
-    try:
-        with open("debug_replies.html", "w", encoding="utf-8") as f:
-            f.write(driver.page_source)
-        logger.info("💾 Dumped replies page to debug_replies.html")
-    except Exception:
-        pass
-
     parent_link = None
-
     for t in tweets:
         text = t.text
         logger.info(f"📝 Checking tweet:\n{text[:120]}...")
 
-        # ensure it's from the correct username
         try:
             user_elem = t.find_element(By.CSS_SELECTOR, f"a[href='/{username}']")
         except:
@@ -182,15 +182,16 @@ def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None,
                 logger.info(f"👉 Reply link: {reply_link}")
             except:
                 reply_link = None
-                logger.info("⚠️ Could not extract reply link.")
 
             if reply_link:
                 logger.info("🌐 Opening reply thread to find parent tweet...")
                 driver.get(reply_link)
                 time.sleep(5)
+                save_screenshot(driver, "reply_thread_opened")
 
                 thread = driver.find_elements(By.CSS_SELECTOR, "article")
                 logger.info(f"📌 Found {len(thread)} tweets in thread.")
+                save_screenshot(driver, "thread_loaded")
 
                 if len(thread) >= 2:
                     try:
@@ -206,7 +207,6 @@ def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None,
 
 
 def check_retweet(username, task_url, login_user=None, login_pass=None, headless=True):
-    """Check if user retweeted the given task_url"""
     logger.info("🚀 Starting browser for retweet check...")
     driver = get_driver(headless=headless)
 
@@ -219,9 +219,11 @@ def check_retweet(username, task_url, login_user=None, login_pass=None, headless
     logger.info(f"🌐 Opening user profile: {url}")
     driver.get(url)
     time.sleep(5)
+    save_screenshot(driver, "profile_opened")
 
     posts = driver.find_elements(By.CSS_SELECTOR, "article a[href*='/status/']")
     logger.info(f"📌 Found {len(posts)} posts on profile.")
+    save_screenshot(driver, "posts_loaded")
 
     retweeted = False
     for p in posts:
@@ -229,11 +231,13 @@ def check_retweet(username, task_url, login_user=None, login_pass=None, headless
         if task_url in link:
             logger.info(f"✅ Retweet found: {link}")
             retweeted = True
+            save_screenshot(driver, "retweet_found")
             break
 
     driver.quit()
     print("🛑 Browser closed after retweet check.")
     return retweeted
+
 
 
 # ---------------- TELEGRAM BOT HANDLERS ----------------
