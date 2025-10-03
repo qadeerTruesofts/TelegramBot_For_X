@@ -18,7 +18,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import pickle
 import time
-
+import tempfile
+from selenium.webdriver.chrome.options import Options
 
 COOKIE_FILE = "twitter_cookies.pkl"
 
@@ -70,13 +71,19 @@ def get_next_task_id():
 #     service = Service()  # uses chromedriver_binary automatically
 #     return webdriver.Chrome(service=service, options=chrome_options)
 def get_driver(headless=True):
-    options = webdriver.ChromeOptions()
+    options = Options()
     if headless:
         options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    return webdriver.Chrome(options=options)
+
+    # ✅ unique temp dir for each session
+    user_data_dir = tempfile.mkdtemp()
+    options.add_argument(f"--user-data-dir={user_data_dir}")
+
+    driver = webdriver.Chrome(options=options)
+    return driver
 
 
 def login_and_save_cookies(driver, username, password):
