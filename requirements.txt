@@ -3,3 +3,4 @@ selenium==4.16.0
 pymongo[srv]==4.6.0
 python-telegram-bot==20.6
 requests==2.32.1
+chromedriver-binary==115.0.5790.170.0

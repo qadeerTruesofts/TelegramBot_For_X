@@ -18,6 +18,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import pickle
 import time
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+import chromedriver_binary 
 
 COOKIE_FILE = "twitter_cookies.pkl"
 
@@ -60,13 +63,14 @@ def get_next_task_id():
 # ---------------- VERIFICATION FUNCTIONS ----------------
 
 def get_driver(headless=True):
-    options = webdriver.ChromeOptions()
+    chrome_options = Options()
     if headless:
-        options.add_argument("--headless=new")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    return webdriver.Chrome(options=options)
+        chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    service = Service()  # uses chromedriver_binary automatically
+    return webdriver.Chrome(service=service, options=chrome_options)
 
 
 def login_and_save_cookies(driver, username, password):
