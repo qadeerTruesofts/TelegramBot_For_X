@@ -12,7 +12,6 @@ from telegram.ext import (
     filters
 )
 from dotenv import load_dotenv
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -20,6 +19,8 @@ import pickle
 import time
 import tempfile
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+
 
 COOKIE_FILE = "twitter_cookies.pkl"
 
