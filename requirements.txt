@@ -1,0 +1,5 @@
+python-dotenv==1.0.1
+selenium==4.16.0
+pymongo[srv]==4.6.0
+python-telegram-bot==20.6
+requests==2.32.1
