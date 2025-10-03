@@ -20,6 +20,8 @@ import time
 import tempfile
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 COOKIE_FILE = "twitter_cookies.pkl"
@@ -134,19 +136,46 @@ def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None,
     url = f"https://x.com/{username}/with_replies"
     logger.info(f"🌐 Opening replies page: {url}")
     driver.get(url)
-    time.sleep(5)
 
-    logger.info("🔍 Finding all tweets...")
+    # wait for replies to appear
+    try:
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "article"))
+        )
+    except Exception:
+        logger.warning("⚠️ No replies loaded within timeout.")
+
+    # scroll multiple times to load more replies
+    for _ in range(5):
+        driver.find_element(By.TAG_NAME, "body").send_keys(Keys.END)
+        time.sleep(2)
+
+    # collect tweets
     tweets = driver.find_elements(By.CSS_SELECTOR, "article")
     logger.info(f"📌 Found {len(tweets)} tweets on replies page.")
+
+    # debug dump
+    try:
+        with open("debug_replies.html", "w", encoding="utf-8") as f:
+            f.write(driver.page_source)
+        logger.info("💾 Dumped replies page to debug_replies.html")
+    except Exception:
+        pass
 
     parent_link = None
 
     for t in tweets:
         text = t.text
-        logger.info(f"📝 Checking tweet:\n{text[:120]}...")  # print first 120 chars
-        if keyword.lower() in text.lower():
-            logger.info(f"✅ Keyword '{keyword}' found in this reply!")
+        logger.info(f"📝 Checking tweet:\n{text[:120]}...")
+
+        # ensure it's from the correct username
+        try:
+            user_elem = t.find_element(By.CSS_SELECTOR, f"a[href='/{username}']")
+        except:
+            user_elem = None
+
+        if user_elem and keyword.lower() in text.lower():
+            logger.info(f"✅ Reply from @{username} contains '{keyword}'")
 
             try:
                 reply_link = t.find_element(By.CSS_SELECTOR, "a[href*='/status/']").get_attribute("href")
@@ -166,14 +195,13 @@ def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None,
                 if len(thread) >= 2:
                     try:
                         parent_link = thread[0].find_element(By.CSS_SELECTOR, "a[href*='/status/']").get_attribute("href")
-                        print(f"👑 Parent tweet link: {parent_link}")
+                        logger.info(f"👑 Parent tweet link: {parent_link}")
                     except:
-                        parent_link = None
-                        print("⚠️ Could not extract parent tweet link.")
+                        logger.warning("⚠️ Could not extract parent tweet link.")
             break
 
     driver.quit()
-    print("🛑 Browser closed.")
+    logger.info("🛑 Browser closed.")
     return parent_link
 
 
