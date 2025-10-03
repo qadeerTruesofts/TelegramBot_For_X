@@ -77,13 +77,12 @@ def get_driver(headless=True):
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    options.add_argument("--disable-software-rasterizer")
 
-    # ✅ unique temp dir for each session
-    user_data_dir = tempfile.mkdtemp()
-    options.add_argument(f"--user-data-dir={user_data_dir}")
-
-    driver = webdriver.Chrome(options=options)
+    service = Service(os.getenv("CHROMEDRIVER", "/usr/bin/chromedriver"))
+    driver = webdriver.Chrome(service=service, options=options)
     return driver
+
 
 
 def login_and_save_cookies(driver, username, password):
