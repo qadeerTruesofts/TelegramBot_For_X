@@ -109,21 +109,21 @@ def login_and_save_cookies(driver, username, password):
 
 def load_cookies(driver):
     if os.path.exists(COOKIE_FILE):
-        print("🍪 Loading cookies...")
+        logger.info("🍪 Loading cookies...")
         driver.get("https://x.com")
         cookies = pickle.load(open(COOKIE_FILE, "rb"))
         for cookie in cookies:
             driver.add_cookie(cookie)
-        print("🍪 Cookies loaded successfully!")
+        logger.info("🍪 Cookies loaded successfully!")
         driver.refresh()
         time.sleep(5)
         return True
-    print("⚠️ No cookies found, will login manually.")
+    logger.info("⚠️ No cookies found, will login manually.")
     return False
 
 
 def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None, headless=True):
-    print("🚀 Starting browser...")
+    logger.info("🚀 Starting browser...")
     driver = get_driver(headless=headless)
 
     if not load_cookies(driver):
@@ -132,36 +132,36 @@ def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None,
         login_and_save_cookies(driver, login_user, login_pass)
 
     url = f"https://x.com/{username}/with_replies"
-    print(f"🌐 Opening replies page: {url}")
+    logger.info(f"🌐 Opening replies page: {url}")
     driver.get(url)
     time.sleep(5)
 
-    print("🔍 Finding all tweets...")
+    logger.info("🔍 Finding all tweets...")
     tweets = driver.find_elements(By.CSS_SELECTOR, "article")
-    print(f"📌 Found {len(tweets)} tweets on replies page.")
+    logger.info(f"📌 Found {len(tweets)} tweets on replies page.")
 
     parent_link = None
 
     for t in tweets:
         text = t.text
-        print(f"📝 Checking tweet:\n{text[:120]}...")  # print first 120 chars
+        logger.info(f"📝 Checking tweet:\n{text[:120]}...")  # print first 120 chars
         if keyword.lower() in text.lower():
-            print(f"✅ Keyword '{keyword}' found in this reply!")
+            logger.info(f"✅ Keyword '{keyword}' found in this reply!")
 
             try:
                 reply_link = t.find_element(By.CSS_SELECTOR, "a[href*='/status/']").get_attribute("href")
-                print(f"👉 Reply link: {reply_link}")
+                logger.info(f"👉 Reply link: {reply_link}")
             except:
                 reply_link = None
-                print("⚠️ Could not extract reply link.")
+                logger.info("⚠️ Could not extract reply link.")
 
             if reply_link:
-                print("🌐 Opening reply thread to find parent tweet...")
+                logger.info("🌐 Opening reply thread to find parent tweet...")
                 driver.get(reply_link)
                 time.sleep(5)
 
                 thread = driver.find_elements(By.CSS_SELECTOR, "article")
-                print(f"📌 Found {len(thread)} tweets in thread.")
+                logger.info(f"📌 Found {len(thread)} tweets in thread.")
 
                 if len(thread) >= 2:
                     try:
@@ -179,7 +179,7 @@ def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None,
 
 def check_retweet(username, task_url, login_user=None, login_pass=None, headless=True):
     """Check if user retweeted the given task_url"""
-    print("🚀 Starting browser for retweet check...")
+    logger.info("🚀 Starting browser for retweet check...")
     driver = get_driver(headless=headless)
 
     if not load_cookies(driver):
@@ -188,18 +188,18 @@ def check_retweet(username, task_url, login_user=None, login_pass=None, headless
         login_and_save_cookies(driver, login_user, login_pass)
 
     url = f"https://x.com/{username}"
-    print(f"🌐 Opening user profile: {url}")
+    logger.info(f"🌐 Opening user profile: {url}")
     driver.get(url)
     time.sleep(5)
 
     posts = driver.find_elements(By.CSS_SELECTOR, "article a[href*='/status/']")
-    print(f"📌 Found {len(posts)} posts on profile.")
+    logger.info(f"📌 Found {len(posts)} posts on profile.")
 
     retweeted = False
     for p in posts:
         link = p.get_attribute("href")
         if task_url in link:
-            print(f"✅ Retweet found: {link}")
+            logger.info(f"✅ Retweet found: {link}")
             retweeted = True
             break
 
