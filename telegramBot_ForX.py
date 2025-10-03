@@ -367,6 +367,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             login_pass=X_LOGIN_PASS,
             headless=True
         )
+        if parent_link and task_url in parent_link:
+            logger.info("✅ Comment verification passed (reply with $Broke found)")
+        else:
+            logger.warning("❌ Comment verification failed (no matching reply found)")
 
         logger.info(f"🔎 Checking retweet for user={username} on task={task_url}")
         retweeted = check_retweet(
@@ -376,6 +380,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             login_pass=X_LOGIN_PASS,
             headless=True
         )
+        if retweeted:
+            logger.info("✅ Retweet verification passed")
+        else:
+            logger.warning("❌ Retweet verification failed (no retweet found)")
 
         if parent_link and task_url in parent_link and retweeted:
             # ✅ Both reply + retweet found
@@ -388,6 +396,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Edit task message
             await query.edit_message_text(f"✅ Verified! {reward} Broke Coin will be sent to your wallet.")
             logger.info(f"✅ Verification success for {telegram_id}, task={task_id}")
+
 
             # Send congratulation message to user
             await query.message.reply_text(
