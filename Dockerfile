@@ -15,7 +15,6 @@ RUN apt-get update && \
     git \
     build-essential \
     libnss3 \
-    libgconf-2-4 \
     libxi6 \
     libxcursor1 \
     libxcomposite1 \
@@ -40,7 +39,7 @@ RUN pip install -r requirements.txt
 ENV CHROME_BIN=/usr/bin/chromium
 ENV CHROME_PATH=/usr/bin/chromium
 
-# --------- Expose port (optional, not required for Telegram bot) ----------
+# --------- Expose port (optional) ----------
 EXPOSE 8080
 
 # --------- Run the bot ----------
