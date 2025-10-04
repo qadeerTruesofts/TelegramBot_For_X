@@ -12,17 +12,12 @@ from telegram.ext import (
     filters
 )
 from dotenv import load_dotenv
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import pickle
 import time
-import tempfile
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import uuid
 
 
 COOKIE_FILE = "twitter_cookies.pkl"
@@ -62,15 +57,6 @@ def get_next_task_id():
         return last_task["task_id"] + 1
     else:
         return 1
-# ---------------- HELPER: SAVE SCREENSHOT ----------------
-def save_screenshot(driver, label="step"):
-    """Save screenshot with a unique filename for debugging."""
-    filename = f"screenshot_{label}_{uuid.uuid4().hex[:6]}.png"
-    try:
-        driver.save_screenshot(filename)
-        logger.info(f"📸 Screenshot saved: {filename}")
-    except Exception as e:
-        logger.error(f"❌ Failed to save screenshot {label}: {e}")
 
 # ---------------- VERIFICATION FUNCTIONS ----------------
 
@@ -84,18 +70,13 @@ def save_screenshot(driver, label="step"):
 #     service = Service()  # uses chromedriver_binary automatically
 #     return webdriver.Chrome(service=service, options=chrome_options)
 def get_driver(headless=True):
-    options = Options()
+    options = webdriver.ChromeOptions()
     if headless:
         options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--disable-software-rasterizer")
-
-    service = Service(os.getenv("CHROMEDRIVER", "/usr/bin/chromedriver"))
-    driver = webdriver.Chrome(service=service, options=options)
-    return driver
-
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    return webdriver.Chrome(options=options)
 
 
 def login_and_save_cookies(driver, username, password):
@@ -121,21 +102,21 @@ def login_and_save_cookies(driver, username, password):
 
 def load_cookies(driver):
     if os.path.exists(COOKIE_FILE):
-        logger.info("🍪 Loading cookies...")
+        print("🍪 Loading cookies...")
         driver.get("https://x.com")
         cookies = pickle.load(open(COOKIE_FILE, "rb"))
         for cookie in cookies:
             driver.add_cookie(cookie)
-        logger.info("🍪 Cookies loaded successfully!")
+        print("🍪 Cookies loaded successfully!")
         driver.refresh()
         time.sleep(5)
         return True
-    logger.info("⚠️ No cookies found, will login manually.")
+    print("⚠️ No cookies found, will login manually.")
     return False
 
 
 def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None, headless=True):
-    logger.info("🚀 Starting browser...")
+    print("🚀 Starting browser...")
     driver = get_driver(headless=headless)
 
     if not load_cookies(driver):
@@ -144,70 +125,54 @@ def scrape_replies(username, keyword="$Broke", login_user=None, login_pass=None,
         login_and_save_cookies(driver, login_user, login_pass)
 
     url = f"https://x.com/{username}/with_replies"
-    logger.info(f"🌐 Opening replies page: {url}")
+    print(f"🌐 Opening replies page: {url}")
     driver.get(url)
-    save_screenshot(driver, "with_replies_opened")
+    time.sleep(5)
 
-    try:
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "article"))
-        )
-    except Exception:
-        logger.warning("⚠️ No replies loaded within timeout.")
-    save_screenshot(driver, "with_replies_loaded")
-
-    for _ in range(5):
-        driver.find_element(By.TAG_NAME, "body").send_keys(Keys.END)
-        time.sleep(2)
-    save_screenshot(driver, "after_scrolling")
-
+    print("🔍 Finding all tweets...")
     tweets = driver.find_elements(By.CSS_SELECTOR, "article")
-    logger.info(f"📌 Found {len(tweets)} tweets on replies page.")
+    print(f"📌 Found {len(tweets)} tweets on replies page.")
 
     parent_link = None
+
     for t in tweets:
         text = t.text
-        logger.info(f"📝 Checking tweet:\n{text[:120]}...")
-
-        try:
-            user_elem = t.find_element(By.CSS_SELECTOR, f"a[href='/{username}']")
-        except:
-            user_elem = None
-
-        if user_elem and keyword.lower() in text.lower():
-            logger.info(f"✅ Reply from @{username} contains '{keyword}'")
+        print(f"📝 Checking tweet:\n{text[:120]}...")  # print first 120 chars
+        if keyword.lower() in text.lower():
+            print(f"✅ Keyword '{keyword}' found in this reply!")
 
             try:
                 reply_link = t.find_element(By.CSS_SELECTOR, "a[href*='/status/']").get_attribute("href")
-                logger.info(f"👉 Reply link: {reply_link}")
+                print(f"👉 Reply link: {reply_link}")
             except:
                 reply_link = None
+                print("⚠️ Could not extract reply link.")
 
             if reply_link:
-                logger.info("🌐 Opening reply thread to find parent tweet...")
+                print("🌐 Opening reply thread to find parent tweet...")
                 driver.get(reply_link)
                 time.sleep(5)
-                save_screenshot(driver, "reply_thread_opened")
 
                 thread = driver.find_elements(By.CSS_SELECTOR, "article")
-                logger.info(f"📌 Found {len(thread)} tweets in thread.")
-                save_screenshot(driver, "thread_loaded")
+                print(f"📌 Found {len(thread)} tweets in thread.")
 
                 if len(thread) >= 2:
                     try:
                         parent_link = thread[0].find_element(By.CSS_SELECTOR, "a[href*='/status/']").get_attribute("href")
-                        logger.info(f"👑 Parent tweet link: {parent_link}")
+                        print(f"👑 Parent tweet link: {parent_link}")
                     except:
-                        logger.warning("⚠️ Could not extract parent tweet link.")
+                        parent_link = None
+                        print("⚠️ Could not extract parent tweet link.")
             break
 
     driver.quit()
-    logger.info("🛑 Browser closed.")
+    print("🛑 Browser closed.")
     return parent_link
 
 
 def check_retweet(username, task_url, login_user=None, login_pass=None, headless=True):
-    logger.info("🚀 Starting browser for retweet check...")
+    """Check if user retweeted the given task_url"""
+    print("🚀 Starting browser for retweet check...")
     driver = get_driver(headless=headless)
 
     if not load_cookies(driver):
@@ -216,28 +181,24 @@ def check_retweet(username, task_url, login_user=None, login_pass=None, headless
         login_and_save_cookies(driver, login_user, login_pass)
 
     url = f"https://x.com/{username}"
-    logger.info(f"🌐 Opening user profile: {url}")
+    print(f"🌐 Opening user profile: {url}")
     driver.get(url)
     time.sleep(5)
-    save_screenshot(driver, "profile_opened")
 
     posts = driver.find_elements(By.CSS_SELECTOR, "article a[href*='/status/']")
-    logger.info(f"📌 Found {len(posts)} posts on profile.")
-    save_screenshot(driver, "posts_loaded")
+    print(f"📌 Found {len(posts)} posts on profile.")
 
     retweeted = False
     for p in posts:
         link = p.get_attribute("href")
         if task_url in link:
-            logger.info(f"✅ Retweet found: {link}")
+            print(f"✅ Retweet found: {link}")
             retweeted = True
-            save_screenshot(driver, "retweet_found")
             break
 
     driver.quit()
     print("🛑 Browser closed after retweet check.")
     return retweeted
-
 
 
 # ---------------- TELEGRAM BOT HANDLERS ----------------
@@ -399,10 +360,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             login_pass=X_LOGIN_PASS,
             headless=True
         )
-        if parent_link and task_url in parent_link:
-            logger.info("✅ Comment verification passed (reply with $Broke found)")
-        else:
-            logger.warning("❌ Comment verification failed (no matching reply found)")
 
         logger.info(f"🔎 Checking retweet for user={username} on task={task_url}")
         retweeted = check_retweet(
@@ -412,10 +369,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             login_pass=X_LOGIN_PASS,
             headless=True
         )
-        if retweeted:
-            logger.info("✅ Retweet verification passed")
-        else:
-            logger.warning("❌ Retweet verification failed (no retweet found)")
 
         if parent_link and task_url in parent_link and retweeted:
             # ✅ Both reply + retweet found
@@ -428,7 +381,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Edit task message
             await query.edit_message_text(f"✅ Verified! {reward} Broke Coin will be sent to your wallet.")
             logger.info(f"✅ Verification success for {telegram_id}, task={task_id}")
-
 
             # Send congratulation message to user
             await query.message.reply_text(
